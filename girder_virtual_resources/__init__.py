@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from girder import events
 from girder.api.v1.folder import Folder as FolderResource
 from girder.constants import AccessType
 from girder.models.folder import Folder
@@ -17,7 +16,6 @@ class VirtualResourcesPlugin(GirderPlugin):
     CLIENT_SOURCE_PATH = "web_client"
 
     def load(self, info):
-        plugin_name = self.DISPLAY_NAME.lower().replace(" ", "_")
         Folder().exposeFields(level=AccessType.READ, fields={"isMapping"})
         Folder().exposeFields(level=AccessType.SITE_ADMIN, fields={"fsPath"})
         for endpoint in (FolderResource.updateFolder, FolderResource.createFolder):
@@ -35,6 +33,3 @@ class VirtualResourcesPlugin(GirderPlugin):
         info["apiRoot"].virtual_file = virtual_file
         info["apiRoot"].virtual_folder = VirtualFolder()
         info["apiRoot"].virtual_resource = VirtualResource()
-        events.bind(
-            "rest.get.item/:id/download.before", plugin_name, virtual_file.file_download
-        )
