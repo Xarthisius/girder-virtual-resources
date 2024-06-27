@@ -55,6 +55,8 @@ class VirtualFolder(VirtualObject):
         # PUT/DELETE /folder/:id/metadata -- not needed
         events.bind("rest.get.folder/:id/rootpath.before", name, self.folder_root_path)
         events.bind("rest.post.folder/recursive.before", name, self.create_folder_recursive)
+        # For README plugin
+        events.bind("rest.get.folder/:id/readme.before", name, self.get_folder_readme)
 
     @access.public(scope=TokenScope.DATA_READ)
     @validate_event(level=AccessType.READ)
@@ -254,3 +256,8 @@ class VirtualFolder(VirtualObject):
         event.preventDefault().addResponse(
             Folder().filter(self.vFolder(new_folder, root), user=user)
         )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @validate_event(level=AccessType.READ)
+    def get_folder_readme(self, event, path, root, user=None):
+        return ""
