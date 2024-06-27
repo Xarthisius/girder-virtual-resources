@@ -1,20 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from operator import itemgetter
 import os
 import pathlib
-import pymongo
 import shutil
+from operator import itemgetter
 
 from girder import events
 from girder.api import access
-from girder.api.rest import setResponseHeader, setContentDisposition
-from girder.constants import TokenScope, AccessType
+from girder.api.rest import setContentDisposition, setResponseHeader
+from girder.constants import AccessType, TokenScope
 from girder.exceptions import GirderException, ValidationException
 from girder.models.folder import Folder
 from girder.utility import ziputil
 
-from . import VirtualObject, validate_event, ensure_unique_path, bail_if_exists
+import pymongo
+
+from . import VirtualObject, bail_if_exists, ensure_unique_path, validate_event
 
 
 def file_stream(path, buf_size=65536):
@@ -54,6 +55,8 @@ class VirtualFolder(VirtualObject):
         # PUT/DELETE /folder/:id/metadata -- not needed
         events.bind("rest.get.folder/:id/rootpath.before", name, self.folder_root_path)
         events.bind("rest.post.folder/recursive.before", name, self.create_folder_recursive)
+        # For README plugin
+        events.bind("rest.get.folder/:id/readme.before", name, self.get_folder_readme)
 
     @access.public(scope=TokenScope.DATA_READ)
     @validate_event(level=AccessType.READ)
@@ -82,7 +85,7 @@ class VirtualFolder(VirtualObject):
         event.preventDefault().addResponse(response)
 
     @access.user(scope=TokenScope.DATA_WRITE)
-    @validate_event(level=AccessType.WRITE)
+    @validate_event(level=AccessType.WRITE, validate_admin=True)
     def create_folder(self, event, path, root, user=None):
         params = event.info["params"]
         new_path = path / params["name"]
@@ -104,7 +107,7 @@ class VirtualFolder(VirtualObject):
         )
 
     @access.user(scope=TokenScope.DATA_WRITE)
-    @validate_event(level=AccessType.WRITE)
+    @validate_event(level=AccessType.WRITE, validate_admin=True)
     def rename_folder(self, event, path, root, user=None):
         self.is_dir(path, root["_id"])
         source = self.vFolder(path, root)
@@ -184,7 +187,7 @@ class VirtualFolder(VirtualObject):
     @validate_event(level=AccessType.READ)
     def get_folder_details(self, event, path, root, user=None):
         self.is_dir(path, root["_id"])
-        response = dict(nFolders=0, nItems=0)
+        response = {"nFolders": 0, "nItems": 0}
         for obj in path.iterdir():
             if obj.is_dir():
                 response["nFolders"] += 1
@@ -210,7 +213,7 @@ class VirtualFolder(VirtualObject):
             zip_stream = ziputil.ZipGenerator(rootPath="")
             for obj in recursive_file_list(path):
                 zip_path = os.path.relpath(obj.as_posix(), path.as_posix())
-                for data in zip_stream.addFile(lambda: file_stream(obj), zip_path):
+                for data in zip_stream.addFile(lambda: file_stream(obj), zip_path):  # noqa
                     yield data
             yield zip_stream.footer()
 
@@ -223,22 +226,22 @@ class VirtualFolder(VirtualObject):
         response = []
         if root_path != path:
             response.append(
-                dict(
-                    type="folder",
-                    object=Folder().filter(self.vFolder(path, root), user=user),
-                )
+                {
+                    "type": "folder",
+                    "object": Folder().filter(self.vFolder(path, root), user=user),
+                }
             )
             path = path.parent
             while path != root_path:
                 response.append(
-                    dict(
-                        type="folder",
-                        object=Folder().filter(self.vFolder(path, root), user=user),
-                    )
+                    {
+                        "type": "folder",
+                        "object": Folder().filter(self.vFolder(path, root), user=user),
+                    }
                 )
                 path = path.parent
 
-        response.append(dict(type="folder", object=Folder().filter(root, user=user)))
+        response.append({"type": "folder", "object": Folder().filter(root, user=user)})
         girder_rootpath = Folder().parentsToRoot(root, user=self.getCurrentUser())
         response += girder_rootpath[::-1]
         response.pop(0)
@@ -253,3 +256,8 @@ class VirtualFolder(VirtualObject):
         event.preventDefault().addResponse(
             Folder().filter(self.vFolder(new_folder, root), user=user)
         )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    @validate_event(level=AccessType.READ)
+    def get_folder_readme(self, event, path, root, user=None):
+        return ""

@@ -31,10 +31,32 @@ def ensure_unique_path(dirname, name):
     return dirname / new_name
 
 
-def validate_event(level=AccessType.READ):
+def validate_event(level=AccessType.READ, validate_admin=False):
     def validation(func):
         def wrapper(self, event):
             params = event.info.get("params", {})
+            if {"isMapping", "fsPath"} & set(params) and validate_admin:
+                folder = Folder().load(event.info["id"], force=True)
+                update = False
+
+                if params.get("isMapping") is not None:
+                    update = True
+                    folder["isMapping"] = bool(params["isMapping"])
+                if params.get("fsPath") is not None:
+                    update = True
+                    folder["fsPath"] = params["fsPath"]
+
+                if update:
+                    self.requireAdmin(
+                        self.getCurrentUser(), "Must be admin to setup virtual folders."
+                    )
+                    folder = Folder().filter(Folder().save(folder), self.getCurrentUser())
+                    pathlib.Path(folder["fsPath"]).mkdir(
+                        mode=0o755, parents=True, exist_ok=True
+                    )
+                    event.preventDefault().addResponse(folder)
+                    return
+
             if "uploadId" in params:
                 upload = Upload().load(params["uploadId"])
                 try:
@@ -121,8 +143,8 @@ class VirtualObject(Resource):
         if path == pathlib.Path(root["fsPath"]):
             # We want actual mtime/ctime from disk
             root.update({
-                "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-                "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+                "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+                "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             })
             return root
 
@@ -139,8 +161,8 @@ class VirtualObject(Resource):
             "parentId": parentId,
             "parentCollection": "folder",
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "public": root.get("public", False),
             "lowerName": path.parts[-1].lower(),
@@ -155,8 +177,8 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "folderId": self.generate_id(path.parent.as_posix(), root["_id"]),
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "lowerName": path.parts[-1].lower(),
         }
@@ -170,8 +192,8 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "folderId": self.generate_id(path.parent.as_posix(), root["_id"]),
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "lowerName": path.parts[-1].lower(),
             "linkTarget": os.readlink(path)
@@ -189,7 +211,7 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "size": stat.st_size,
             "exts": [_[1:] for _ in path.suffixes],
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "itemId": self.generate_id(path.as_posix(), root["_id"]),
         }
