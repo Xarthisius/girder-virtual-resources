@@ -143,8 +143,8 @@ class VirtualObject(Resource):
         if path == pathlib.Path(root["fsPath"]):
             # We want actual mtime/ctime from disk
             root.update({
-                "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-                "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+                "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+                "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             })
             return root
 
@@ -161,8 +161,8 @@ class VirtualObject(Resource):
             "parentId": parentId,
             "parentCollection": "folder",
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "public": root.get("public", False),
             "lowerName": path.parts[-1].lower(),
@@ -177,8 +177,8 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "folderId": self.generate_id(path.parent.as_posix(), root["_id"]),
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "lowerName": path.parts[-1].lower(),
         }
@@ -192,8 +192,8 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "folderId": self.generate_id(path.parent.as_posix(), root["_id"]),
             "creatorId": None,
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "size": stat.st_size,
             "lowerName": path.parts[-1].lower(),
             "linkTarget": os.readlink(path)
@@ -211,7 +211,7 @@ class VirtualObject(Resource):
             "name": path.parts[-1],
             "size": stat.st_size,
             "exts": [_[1:] for _ in path.suffixes],
-            "created": datetime.datetime.fromtimestamp(stat.st_ctime),
-            "updated": datetime.datetime.fromtimestamp(stat.st_mtime),
+            "created": datetime.datetime.fromtimestamp(stat.st_ctime, datetime.timezone.utc),
+            "updated": datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc),
             "itemId": self.generate_id(path.as_posix(), root["_id"]),
         }
