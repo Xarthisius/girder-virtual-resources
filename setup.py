@@ -20,7 +20,7 @@ setup(
     install_requires=["girder>=3"],
     entry_points={
         "girder.plugin": [
-            "girder_virtual_resources = girder_virtual_resources:VirtualResourcesPlugin"
+            "virtual_resources = girder_virtual_resources:VirtualResourcesPlugin"
         ]
     },
     zip_safe=False,

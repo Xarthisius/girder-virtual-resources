@@ -26,7 +26,7 @@ def test_vo_methods(mapped_folder):
         VirtualObject().is_dir(non_existing, mapped_folder["_id"])
 
 
-@pytest.mark.plugin("girder_virtual_resources")
+@pytest.mark.plugin("virtual_resources")
 def test_mapping_creation(server, admin, user, public_folder):
     resp = server.request(
         path="/folder/{_id}".format(**public_folder),
