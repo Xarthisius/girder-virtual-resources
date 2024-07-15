@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - 3.x-port
   pull_request:
   workflow_dispatch:
 
