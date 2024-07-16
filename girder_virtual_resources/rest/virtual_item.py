@@ -102,7 +102,7 @@ class VirtualItem(VirtualObject):
             dst_path, dst_root_id = self.path_from_id(parentId)
             if not dst_path:
                 raise GirderException("Folder {} is not a mapping.".format(parentId))
-            # Check wheter the user can write to the destination
+            # Check whether the user can write to the destination
             Folder().load(dst_root_id, user=user, level=AccessType.WRITE, exc=True)
             self.is_dir(dst_path, dst_root_id)
             new_path = dst_path / name
