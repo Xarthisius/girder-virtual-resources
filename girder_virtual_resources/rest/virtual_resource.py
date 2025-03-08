@@ -154,6 +154,8 @@ class VirtualResource(VirtualObject):
     def lookup(self, event):
         test = event.info["params"].get("test", False)
         path = event.info["params"].get("path")
+        if len(split(path.lstrip("/"))) < 3:
+            return    # either a user or a collection, so default to core
         response = self._lookUpPath(path, self.getCurrentUser(), test)["document"]
         event.preventDefault().addResponse(response)
 
