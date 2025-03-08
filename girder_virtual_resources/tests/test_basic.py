@@ -3,12 +3,9 @@
 
 import pathlib
 
-from girder.exceptions import ValidationException
-
 import pytest
-
+from girder.exceptions import ValidationException
 from pytest_girder.assertions import assertStatus, assertStatusOk
-
 
 chunk1, chunk2 = ("hello ", "world")
 
@@ -51,3 +48,15 @@ def test_mapping_creation(server, admin, user, public_folder):
     assert "isMapping" in resp.json
     assert resp.json["fsPath"] == "/etc"
     assert resp.json["isMapping"] is True
+
+
+@pytest.mark.plugin("virtual_resources")
+def test_lookup(server, admin):
+    resp = server.request(
+        path="/resource/lookup",
+        method="GET",
+        user=admin,
+        params={"path": f"/user/{admin['login']}"},
+    )
+    assertStatusOk(resp)
+    assert resp.json["_id"] == str(admin["_id"])
