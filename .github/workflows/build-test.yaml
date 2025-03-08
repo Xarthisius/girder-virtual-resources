@@ -19,7 +19,7 @@ jobs:
         python-version: ["3.12"]
     services:
       mongodb:
-        image: mongo:3.6
+        image: mongo:4.0
         ports:
           - 27017:27017
     steps:
@@ -33,13 +33,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install tox
+    - name: Cache tox environments
+      uses: actions/cache@v4
+      with:
+        path: .tox
+        key: ${{ matrix.python-version }}-tox-${{ hashFiles('setup.py') }}
     - name: Run Linter
       run: tox -e lint -- girder_virtual_resources
     - name: Run Tests with coverage
-      run: tox -e pytest
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
       env:
         GIRDER_MAX_CURSOR_TIMEOUT_MS: 60000
+      run: tox -e pytest
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
