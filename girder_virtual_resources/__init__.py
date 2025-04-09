@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from girder.api.v1.folder import Folder as FolderResource
 from girder.constants import AccessType
 from girder.models.folder import Folder
 from girder.plugin import GirderPlugin
@@ -16,6 +15,10 @@ class VirtualResourcesPlugin(GirderPlugin):
     CLIENT_SOURCE_PATH = "web_client"
 
     def load(self, info):
+        from girder.api.v1.folder import (
+            Folder as FolderResource,  # noqa: F401 circular import
+        )
+
         Folder().exposeFields(level=AccessType.READ, fields={"isMapping"})
         Folder().exposeFields(level=AccessType.SITE_ADMIN, fields={"fsPath"})
         for endpoint in (FolderResource.updateFolder, FolderResource.createFolder):
