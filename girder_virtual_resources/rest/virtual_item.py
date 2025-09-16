@@ -24,6 +24,7 @@ class VirtualItem(VirtualObject):
         self.resourceName = "virtual_item"
         name = "virtual_resources"
 
+        events.bind("model.item.validate", name, self.validate_item)
         events.bind("rest.get.item.before", name, self.get_child_items)
         events.bind("rest.post.item.before", name, self.create_item)
         events.bind("rest.get.item/:id.before", name, self.get_item_info)
@@ -35,11 +36,33 @@ class VirtualItem(VirtualObject):
         # PUT/DELETE /item/:id/metadata
         events.bind("rest.get.item/:id/rootpath.before", name, self.item_root_path)
 
+    @staticmethod
+    def validate_item(event):
+        doc = event.info
+        if isinstance(doc.get("_id"), str) and doc.get("_id").startswith("wtlocal:"):
+            return
+        parent = Folder().load(doc["folderId"], force=True, exc=True)
+        if parent.get("isSymlink"):
+            raise ValidationException(
+                "You may not place items under a symlink folder.", field="folderId"
+            )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    def get_child_items(self, event):
+        params = event.info["params"]
+        folder_id = params.get("folderId")
+        if folder_id and not folder_id.startswith("wtlocal:"):
+            parent = Folder().load(params["folderId"], force=True, exc=True)
+            if parent.get("isSymlink") and parent.get("symlinkTargetId"):
+                event.info["params"]["folderId"] = str(parent["symlinkTargetId"])
+        self._get_child_items(event)
+
     @access.public(scope=TokenScope.DATA_READ)
     @validate_event(level=AccessType.READ)
-    def get_child_items(self, event, path, root, user=None):
-        self.is_dir(path, root["_id"])
+    def _get_child_items(self, event, path, root, user=None):
         params = event.info["params"]
+
+        self.is_dir(path, root["_id"])
         offset = int(params.get("offset", 0))
         limit = int(params.get("limit", 50))
         name = params.get("name")

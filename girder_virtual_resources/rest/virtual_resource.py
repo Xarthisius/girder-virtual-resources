@@ -9,8 +9,12 @@ from operator import itemgetter
 from girder import events
 from girder.api import access
 from girder.constants import AccessType, TokenScope
-from girder.exceptions import (AccessException, ResourcePathNotFound,
-                               RestException, ValidationException)
+from girder.exceptions import (
+    AccessException,
+    ResourcePathNotFound,
+    RestException,
+    ValidationException,
+)
 from girder.models.collection import Collection
 from girder.models.folder import Folder
 from girder.models.user import User
@@ -155,7 +159,7 @@ class VirtualResource(VirtualObject):
         test = event.info["params"].get("test", False)
         path = event.info["params"].get("path")
         if len(split(path.lstrip("/"))) < 3:
-            return    # either a user or a collection, so default to core
+            return  # either a user or a collection, so default to core
         response = self._lookUpPath(path, self.getCurrentUser(), test)["document"]
         event.preventDefault().addResponse(response)
 
@@ -228,6 +232,14 @@ class VirtualResource(VirtualObject):
             token = None
             for i, token in enumerate(pathArray[2:]):  # noqa
                 document, model = lookUpToken(token, model, document)
+                if (
+                    model == "folder"
+                    and document.get("isSymlink")
+                    and document.get("symlinkTargetId")
+                ):
+                    document = Folder().load(
+                        document["symlinkTargetId"], force=True, exc=True
+                    )
                 if not force:
                     ModelImporter.model(model).requireAccess(document, user)
                 if "fsPath" in document:
