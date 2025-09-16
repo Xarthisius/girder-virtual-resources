@@ -180,11 +180,13 @@ class VirtualFile(VirtualObject):
         abspath.chmod(assetstore.get("perms", DEFAULT_PERMS))
         return self.vFile(abspath, root)
 
-    def _handle_chunk(self, upload, chunk, filter=False, user=None):
+    def _handle_chunk(
+        self, upload, chunk, filter=False, user=None, uploadExtraParameters=None
+    ):
         assetstore = Assetstore().load(upload["assetstoreId"])
         adapter = assetstore_utilities.getAssetstoreAdapter(assetstore)
 
-        upload = adapter.uploadChunk(upload, chunk)
+        upload = adapter.uploadChunk(upload, chunk, uploadExtraParameters)
         if "_id" in upload or upload["received"] != upload["size"]:
             upload = Upload().save(upload)
 
@@ -213,6 +215,7 @@ class VirtualFile(VirtualObject):
             user = self.getCurrentUser()
         offset = int(params.get("offset", 0))
         upload = Upload().load(params["uploadId"])
+        uploadExtraParameters = params.get("uploadExtraParameters")
 
         if upload["userId"] != user["_id"]:
             raise AccessException("You did not initiate this upload.")
@@ -224,7 +227,13 @@ class VirtualFile(VirtualObject):
             )
 
         try:
-            fobj = self._handle_chunk(upload, chunk, filter=True, user=user)
+            fobj = self._handle_chunk(
+                upload,
+                chunk,
+                filter=True,
+                user=user,
+                uploadExtraParameters=uploadExtraParameters,
+            )
             event.preventDefault().addResponse(fobj)
         except IOError as exc:
             if exc.errno == errno.EACCES:

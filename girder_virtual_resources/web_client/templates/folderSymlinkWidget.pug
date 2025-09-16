@@ -1,0 +1,10 @@
+.g-enable-symlink
+  if isAdmin
+    .checkbox
+      label
+        input#enable-symlink(type="checkbox" checked=isSymlink)
+        | Enable or disable symbolic link functionality.
+    .form-group
+      .g-symlink-target
+        label.control-label(for="g-symlink-target-id") Symlink Target
+        input#g-symlink-target-id.input-sm.form-control(type="text" placeholder="Enter symlink target path")

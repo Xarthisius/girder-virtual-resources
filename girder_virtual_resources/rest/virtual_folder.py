@@ -5,6 +5,8 @@ import pathlib
 import shutil
 from operator import itemgetter
 
+import pymongo
+from bson.objectid import ObjectId
 from girder import events
 from girder.api import access
 from girder.api.rest import setContentDisposition, setResponseHeader
@@ -12,8 +14,6 @@ from girder.constants import AccessType, TokenScope
 from girder.exceptions import GirderException, ValidationException
 from girder.models.folder import Folder
 from girder.utility import ziputil
-
-import pymongo
 
 from . import VirtualObject, bail_if_exists, ensure_unique_path, validate_event
 
@@ -38,11 +38,14 @@ class VirtualFolder(VirtualObject):
         super(VirtualFolder, self).__init__()
         self.resourceName = "virtual_folder"
         name = "virtual_resources"
+        events.bind("model.folder.validate", "jsonforms", self._validateFolder)
         events.bind("rest.get.folder.before", name, self.get_child_folders)
         events.bind("rest.post.folder.before", name, self.create_folder)
         events.bind("rest.get.folder/:id.before", name, self.get_folder_info)
         events.bind("rest.put.folder/:id.before", name, self.rename_folder)
         events.bind("rest.delete.folder/:id.before", name, self.remove_folder)
+        events.bind("rest.post.folder.after", "jsonforms", self._folderUpdate)
+        events.bind("rest.put.folder/:id.after", "jsonforms", self._folderUpdate)
         # GET /folder/:id/access -- not needed
         # PUT /folder/:id/access -- not needed
         # PUT /folder/:id/check -- not needed
@@ -54,13 +57,106 @@ class VirtualFolder(VirtualObject):
         events.bind("rest.get.folder/:id/download.before", name, self.download_folder)
         # PUT/DELETE /folder/:id/metadata -- not needed
         events.bind("rest.get.folder/:id/rootpath.before", name, self.folder_root_path)
-        events.bind("rest.post.folder/recursive.before", name, self.create_folder_recursive)
+        events.bind(
+            "rest.post.folder/recursive.before", name, self.create_folder_recursive
+        )
         # For README plugin
         events.bind("rest.get.folder/:id/readme.before", name, self.get_folder_readme)
 
+    def _folderUpdate(self, event):
+        params = event.info["params"]
+        if {"isSymlink", "symlinkTargetId"} & set(params):
+            folder = Folder().load(event.info["returnVal"]["_id"], force=True)
+            update = False
+
+            if params.get("isSymlink") is not None:
+                update = True
+                folder["isSymlink"] = params["isSymlink"]
+            if params.get("symlinkTargetId"):
+                update = True
+                try:
+                    folder["symlinkTargetId"] = ObjectId(params["symlinkTargetId"])
+                except Exception:
+                    raise ValidationException(
+                        "symlinkTargetId must be an ObjectId", field="symlinkTargetId"
+                    )
+
+            if update and not folder.get("isSymlink"):
+                folder["symlinkTargetId"] = None
+
+            if update:
+                self.requireAdmin(
+                    self.getCurrentUser(), "Must be admin to setup symlink folders."
+                )
+                folder = Folder().filter(Folder().save(folder), self.getCurrentUser())
+                event.preventDefault().addResponse(folder)
+
+    @staticmethod
+    def _validateFolder(event):
+        doc = event.info
+
+        if isinstance(doc.get("_id"), str) and doc.get("_id").startswith("wtlocal:"):
+            return
+
+        if "isSymlink" in doc and not isinstance(doc["isSymlink"], bool):
+            raise ValidationException("isSymlink must be a boolean.", field="isSymlink")
+
+        if doc.get("isSymlink"):
+            # Make sure it doesn't have children
+            if list(Folder().childItems(doc, limit=1)):
+                raise ValidationException(
+                    "Symlink folders may not contain child items.", field="isSymlink"
+                )
+            if list(
+                Folder().find(
+                    {"parentId": doc["_id"], "parentCollection": "folder"}, limit=1
+                )
+            ):
+                raise ValidationException(
+                    "Symlink folders may not contain child folders.", field="isSymlink"
+                )
+        if doc["parentCollection"] == "folder":
+            parent = Folder().load(event.info["parentId"], force=True, exc=True)
+            if parent.get("isSymlink"):
+                raise ValidationException(
+                    "You may not place folders under a symlink folder.",
+                    field="folderId",
+                )
+
+        if doc.get("symlinkTargetId") and not isinstance(
+            doc["symlinkTargetId"], ObjectId
+        ):
+            raise ValidationException(
+                "symlinkTargetId must be an ObjectId", field="symlinkTargetId"
+            )
+
+        if doc.get("symlinkTargetId"):
+            if doc["_id"] == doc["symlinkTargetId"]:
+                raise ValidationException(
+                    "A folder may not symlink to itself.", field="symlinkTargetId"
+                )
+            try:
+                Folder().load(doc["symlinkTargetId"], force=True, exc=True)
+            except Exception:
+                raise ValidationException(
+                    "symlinkTargetId must reference a valid folder",
+                    field="symlinkTargetId",
+                )
+
+    @access.public(scope=TokenScope.DATA_READ)
+    def get_child_folders(self, event):
+        params = event.info["params"]
+        # Handle Symlink first
+        parent_id = params.get("parentId")
+        if parent_id and not parent_id.startswith("wtlocal:") and params.get("parentType") == "folder":
+            parent = Folder().load(params["parentId"], force=True, exc=True)
+            if parent.get("isSymlink") and parent.get("symlinkTargetId"):
+                event.info["params"]["parentId"] = str(parent["symlinkTargetId"])
+        self._get_child_folders(event)
+
     @access.public(scope=TokenScope.DATA_READ)
     @validate_event(level=AccessType.READ)
-    def get_child_folders(self, event, path, root, user=None):
+    def _get_child_folders(self, event, path, root, user=None):
         params = event.info["params"]
         name = params.get("name")
         offset = int(params.get("offset", 0))
@@ -75,7 +171,9 @@ class VirtualFolder(VirtualObject):
             else:
                 folders = []
         else:
-            folders = [self.vFolder(obj, root) for obj in path.iterdir() if obj.is_dir()]
+            folders = [
+                self.vFolder(obj, root) for obj in path.iterdir() if obj.is_dir()
+            ]
 
         folders = sorted(folders, key=itemgetter(sort_key), reverse=reverse)
         upper_bound = limit + offset if limit > 0 else None

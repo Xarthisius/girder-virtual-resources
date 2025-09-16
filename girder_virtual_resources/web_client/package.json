@@ -1,15 +1,43 @@
 {
-    "name": "@girder/virtual-resources",
-    "version": "1.0.0",
-    "description": "A Girder plugin that maps Girder Folders to physical directories.",
-    "license": "BSD-3-Clause",
-    "peerDepencencies": {
+    "name": "@girder/girder-virtual-resources",
+    "version": "2.1.0",
+    "description": "Girder plugin that maps Girder Folders to physical directories.",
+    "homepage": "https://github.com/Xarthisius/girder-virtual-resources",
+    "bugs": {
+        "url": "https://github.com/Xarthisius/girder-virtual-resources/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Xarthisius/girder-virtual-resources.git"
+    },
+    "type": "module",
+    "files": [
+        "dist",
+        "package.json"
+    ],
+    "main": "./dist/girder-plugin-virtual-resources.umd.js",
+    "module": "./dist/girder-plugin-virtual-resources.js",
+    "exports": {
+        ".": {
+            "import": "./dist/girder-plugin-virtual-resources.js",
+            "require": "./dist/girder-plugin-virtual-resources.umd.js"
+        },
+        "./package.json": "./package.json",
+        "./styles.css": "./dist/styles.css"
+    },
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite build --watch"
+    },
+    "author": "Kacper Kowalik",
+    "license": "BSD-3",
+    "dependencies": {
         "@girder/core": "*"
     },
-    "dependencies": {},
-    "girderPlugin": {
-        "name": "virtual_resources",
-        "main": "./main.js",
-        "dependencies": []
+    "devDependencies": {
+        "pug": "^3.0.2",
+        "stylus": "^0.54.8",
+        "vite": "^4.3.9",
+        "vite-plugin-istanbul": "^4.1.0"
     }
 }
