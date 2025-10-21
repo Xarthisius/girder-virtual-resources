@@ -13,6 +13,10 @@ var FolderSymlinkWidget = View.extend({
     render: function () {
         const currentUser = getCurrentUser();
         const isAdmin = currentUser && currentUser.get('admin');
+        if (!this.folder || !isAdmin) {
+            this.$el.empty();
+            return this;
+        }
         const isSymlink = this.folder.get('isSymlink') ? true : false;
         this.$el.html(FolderSymlinkWidgetTemplate({
             isSymlink: isSymlink,

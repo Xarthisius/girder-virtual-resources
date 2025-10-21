@@ -1,6 +1,6 @@
 {
     "name": "@girder/girder-virtual-resources",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "description": "Girder plugin that maps Girder Folders to physical directories.",
     "homepage": "https://github.com/Xarthisius/girder-virtual-resources",
     "bugs": {

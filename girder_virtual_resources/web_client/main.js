@@ -12,7 +12,6 @@ wrap(FolderListWidget, 'render', function (render) {
     render.call(this);
 
     this.collection.each((folder) => {
-        console.log('Folder name:', folder.cid, folder.get('name'), folder.get('isSymlink'));
         // if isSymlink change icon
         if (folder.get('isSymlink')) {
             this.$(`.g-folder-list-link[g-folder-cid="${folder.cid}"] i.icon-folder`)
