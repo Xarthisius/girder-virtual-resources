@@ -9,7 +9,7 @@ setup(
     name="girder-virtual-resources",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    version="2.1.0.post2",
+    version="2.1.1",
     description="Girder Plugin exposing physical folders and files as Girder objects.",
     packages=find_packages(),
     include_package_data=True,
